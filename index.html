@@ -1,0 +1,297 @@
+<html><head><title>ATU-X Logger by Jumpingaccess Studio</title>
+<style type="text/css">
+html,body {
+	font:normal 0.9em arial,helvetica;
+}
+#log {
+	width:100%; 
+	height:600px; 
+	border:1px solid #7F9DB9; 
+	overflow:auto;
+	background-color:white;
+	color:black;
+	opacity:0.5;
+}
+#runtime {
+	width:100px;
+	height: 20px;
+	border: 1px solid #7F9DB9;
+	background-color:white;
+        color:black;
+        opacity:0.7777777;
+}
+#msg {
+	width:400px;
+}
+body {
+	background-image: url(https://s3.amazonaws.com/equipe/scoreboard/scoreboard_bg.png);
+	background-repeat: no-repeat;
+	color:white;
+}
+button {
+
+            background-color: Transparent;
+            background-repeat:no-repeat;
+            border: none;
+            cursor:pointer;
+            overflow: hidden;
+
+}
+
+tab1 { padding-left: 5em; }
+tab2 { padding-left: 10em }
+tab3 { padding-left: 20em }
+</style>
+
+
+<script type="text/javascript">
+var socket;
+//RECEIVED: { "type": "pulse", "payload": { "timeTicks": 44466960, "node": "2", "resends": "2", "batteryLevel": "4", "RSSI": "-77" }}
+//Received: {"type":"output","payload":{"id":22376,"rank":5,"running":false,"countDown":false,"countDownDiff":null,"timekeepingOutputId":50,"action":"output","baseTime":"74.87","time":74.87,"phase":1,"round":1,"previousTime":null,"faults":8,"fenceFaults":8,"timeFaults":0,"totalFaults":8}}
+
+function init() {
+	clearBox('log');
+	log("Start Show:"+document.getElementById('show').value+" -- "+document.getElementById('class').value+"<br><br>");
+	var rider = "";
+	var countdiff = "";
+	var timefinal = "";
+	var phase1 = "";
+	var elim = "";
+	var ret = "";
+	
+	var secure = document.getElementById('secure').checked;
+	//log (secure);
+	if (secure == true) {
+		var host = "wss://"+document.getElementById('wurl').value+":"+document.getElementById('port').value // SET THIS TO YOUR SERVER
+	} else {	
+		var host = "ws://"+document.getElementById('wurl').value+":"+document.getElementById('port').value // SET THIS TO YOUR SERVER
+	}
+	//(host);
+	try {
+		socket = new WebSocket(host);
+		//log('WebSocket - status '+socket.readyState+"<br>");
+		socket.onopen    = function(msg) { 
+							   //log("Connected to :"+host); 
+						   };
+		socket.onmessage = function(msg) { 
+								
+							   var s = msg.data
+							   var obj = JSON.parse(s);
+							   //log(msg.data);
+
+							   if (obj.payload.node == 1) {
+										var cellulle = "<a style=color:Green>Cell 1</a>";
+								}
+								if (obj.payload.node == 2) {
+										var cellulle = "<a style=color:red>Cell 2</a>";
+								}
+								if (obj.payload.node == 3) {
+										var cellulle = "<a style=color:red>Cell 3</a>";
+								}
+								if (obj.payload.node == "A" || obj.payload.node == "B" ||obj.payload.node == "C"||obj.payload.node == "D") {
+										var cellulle = "<a style=color:orange>Push </a>";
+								}
+
+								if (obj.type == "output") {
+									if (obj.payload.running == false && obj.payload.countDown == true) {
+										if (rider != obj.payload.rider) {
+											log('<div style=color:blue>Start of the Rider #: '+obj.payload.startNo+' - '+obj.payload.rider+' - '+obj.payload.horse+"</div>");
+											//var ligne = "Start of the Rider #: "+obj.payload.startNo+" - "+obj.payload.rider+" - "+obj.payload.horse;
+										
+										}
+									}
+									if (obj.payload.countDown == false && obj.payload.running == true && obj.payload.phase == "1" ) {
+										if (countdiff != obj.payload.countDownDiff) {
+											log('<div style=color:blue>End of the Countdown: '+obj.payload.countDownDiff+"</div>")
+											
+										}
+									}
+									if (obj.payload.countDown == false && obj.payload.running == true && obj.payload.phase == "2" ) {
+										if (phase1 != obj.payload.previousTime) {
+											log('<div style=color:blue>Time Phase 1: '+obj.payload.previousTime+"</div>")
+											
+										}
+									}
+
+									if (obj.payload.running == false && obj.payload.countDown == false) {
+										if (timefinal != obj.payload.time) {
+											log('<div style=color:blue>Time at the end of the course: '+obj.payload.time+" with "+obj.payload.faults+" penalties</div><br>");
+											log("-------------------------------------------------------------------<br>");
+										}
+										
+									}
+									if (obj.payload.faults == "666") {
+											log('<div style=color:blue>Rider Retired</div><br>');
+											log("-------------------------------------------------------------------<br>");
+										
+									}
+									if (obj.payload.faults == "999") {
+											log('<div style=color:blue>Rider Eliminated</div><br>');
+											log("-------------------------------------------------------------------<br>");
+										
+									}
+
+									rider = obj.payload.rider;
+									countdiff = obj.payload.countDownDiff;
+									timefinal = obj.payload.time;
+									phase1 = obj.payload.previousTime;
+									ret = obj.payload.faults ;
+									elim = obj.payload.faults;
+							   }
+							   if (obj.type == "pulse") {
+								log("Received: "+obj.type+"<tab2>Cell #:"+cellulle+ "</tab2> <tab3>Cross Time:"+convertMilliSecondsIntoLegibleString(obj.payload.timeTicks)+"</tab3><br>");
+						
+							   }
+
+							   if (obj.type=="runningTime") {
+								timelog(obj.payload.time);
+
+							   }
+
+							   if(obj.type == "output") {
+							    //log("RECEIVED: "+msg.data)
+							   }
+						   };
+		socket.onclose   = function(msg) { 
+							   log("Disconnected - status "+this.readyState); 
+							   };
+	}
+	catch(ex){ 
+		log(ex); 
+	}
+	$("msg").focus();
+}
+function displayTime(ticksInSecs) {
+    var ticks = ticksInSecs/1000;
+    var hh = Math.floor(ticks / 3600);
+    var mm = Math.floor((ticks % 3600) / 60);
+    var ss = ticks % 60;
+    return( pad(hh, 2) + ":" + pad(mm, 2) + ":" + pad(ss, 2) );
+}
+
+function convertMilliSecondsIntoLegibleString(milliSecondsIn) {
+
+    var secsIn = milliSecondsIn / 1000;
+    var milliSecs = milliSecondsIn % 1000;
+
+    var hours = Math.floor(secsIn / 3600),
+    remainder = Math.floor(secsIn % 3600),
+    minutes = Math.floor(remainder / 60),
+    seconds = Math.floor(remainder % 60);
+
+
+    return ( pad(hours,2) + ":"+  pad(minutes,2) + ":"+ pad(seconds,2) +":" + pad(milliSecs,2));
+}
+function pad(n, width) {
+    var n = n + '';
+    return n.length >= width ? n : new Array(width - n.length + 1).join('0') + n;
+}
+function send(){
+	var txt,msg;
+	txt = $("msg");
+	msg = txt.value;
+	if(!msg) { 
+		alert("Message can not be empty"); 
+		return; 
+	}
+	txt.value="";
+	txt.focus();
+	try { 
+		socket.send(msg); 
+		log('Sent: '+msg); 
+	} catch(ex) { 
+		log(ex); 
+	}
+}
+function convertMS(ms) {
+  var d, h, m, s;
+  s = Math.floor(ms / 1000);
+  m = Math.floor(s / 60);
+  s = s % 60;
+  h = Math.floor(m / 60);
+  m = m % 60;
+  d = Math.floor(h / 24);
+  h = h % 24;
+  return { d: d, h: h, m: m, s: s };
+};
+function quit(){
+	if (socket != null) {
+		log("Goodbye!");
+		socket.close();
+		socket=null;
+	}
+}
+
+function reconnect() {
+	quit();
+	init();
+}
+function clearBox(elementID)
+{
+    document.getElementById(elementID).innerHTML = "";
+}
+function PrintElem(elem)
+{
+    var mywindow = window.open('', 'PRINT', 'height=800,width=600');
+
+    mywindow.document.write('<html><head><title>' + document.getElementById('show').value  +'-'+ document.getElementById('class').value+ '</title>');
+    mywindow.document.write('</head><body >');
+    mywindow.document.write('<h3>' + document.getElementById('show').value  +'-'+ document.getElementById('class').value  + '</h3>');
+	mywindow.document.write('<h5>ATU-X Time Line</h5>');
+    mywindow.document.write('<h6><pre>'+document.getElementById(elem).innerHTML+'<pre></h6>');
+    mywindow.document.write('</body></html>');
+
+    mywindow.document.close(); // necessary for IE >= 10
+    mywindow.focus(); // necessary for IE >= 10*/
+
+    mywindow.print();
+    mywindow.close();
+
+    return true;
+}
+
+window.setInterval(function() {
+  var elem = document.getElementById('log');
+  elem.scrollTop = elem.scrollHeight;
+}, 5000);
+function valueport() {
+	if (document.getElementById('secure').checked == true) {
+		document.getElementById('port').value="21001";
+	}else {
+		document.getElementById('port').value="21000";
+	
+	}
+}
+// Utilities
+function $(id){ return document.getElementById(id); }
+function log(msg){ $("log").innerHTML+=msg; }
+function timelog(msg) { $("runtime").innerHTML=msg; }
+function onkey(event){ if(event.keyCode==13){ send(); } }
+</script>
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+<h3><u>Jumpingaccess - Equipe ATU-X Logger v1.00</u></h3>
+
+Show <input type="textbox" id="show" size="35">
+Class <input type="textbox" id="class" size="35">
+<br>&nbsp;<br>
+ATU-X Bridge IP (localhost on computer) <input id="wurl" type="textbox"/>
+Port <input id="port" type="textbox" value="21000"/>
+Secure mode <input type="checkbox" id="secure"onclick="valueport()"><br>&nbsp;<br>
+<button  onClick="init()"> <img src="img/start.png"></button>
+<button onClick="quit()"><img src="img/stop.png"></button>
+
+<button  onClick="PrintElem('log')"><img src="img/print.png"></button>
+<br>
+Running Time on ATU-X:
+<div id="runtime"></div>
+<br>
+Log Output from ATU-X:
+<div id="log"></div>
+<br>
+Jumpingaccess Studio - Jumpingaccess Event : www.jumpingaccess.com
+
+</body>
+</html>
