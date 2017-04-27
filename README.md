@@ -2,7 +2,7 @@
 ATU-X Logger in Javascript
 
 Use:
-************
+-------------------------
 open index.html in your browser ( chrome prefered ).
 
 Be sure that the img folder is in the same folder then index.html
@@ -24,5 +24,5 @@ Press print to print the output log.
 
 
 To be fixed
-***************
+-----------
 Secure connexion doens't work at the moment.
